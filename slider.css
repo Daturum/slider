@@ -1,0 +1,72 @@
+.slider{
+	margin: auto 5px;
+	border: 1px solid #00ff00;
+	border-radius: 10px;
+	height: 130px;
+	overflow: hidden;
+	position: relative;
+}
+
+.slider .buffer, .slider .buffer + .loader-buffer{
+	display: none;
+}
+
+.slider .left-button, .slider .right-button{
+	background: #006600;
+	height: 100%;
+	width: 30px;
+	cursor: pointer;
+}
+
+/* Класс inactive присваивается тем кнопкам, нажатие на которые не периводит к какому-либо эффекту */
+.slider .left-button.inactive, .slider .right-button.inactive{
+	background: #00ff00;
+}
+
+.slider .left-button{
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+
+.slider .right-button{
+	position: absolute;
+	right: 0;
+	top: 0;
+}
+
+.slider .container{
+	position: absolute;
+	left: 30px;
+	right: 30px;
+	top: 0;
+	bottom: 0;
+	background: red;
+	padding: 10px 10px;
+	white-space: nowrap;
+	direction: rtl;
+	overflow: hidden;
+}
+
+.slider .slider-item{
+	outline: 1px solid green;
+	display: inline-block;
+	width: 100px;
+	height: 100%;
+	direction: ltr;
+	background: blue;
+	color: white;
+	text-align: center;
+	transition: 300ms ease-in;
+}
+
+.slider .slider-item:before{
+	content: '';
+	height: 100%;
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.slider .slider-item:not(:first-child){
+	margin-right: 10px;
+}
