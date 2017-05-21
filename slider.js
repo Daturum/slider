@@ -14,10 +14,9 @@ function live(selector, event, callback, context) {
 
 
 
-function AjaxSlider(sliderItem,loaderFunction){
+function AjaxSlider(sliderItem){
 
 	this.sliderItem = document.getElementById(sliderItem);
-	this.loaderFunction = loaderFunction;
 	this.container = this.sliderItem.getElementsByClassName("container")[0];
 	this.loaderItem = this.sliderItem.getElementsByClassName("loader-item")[0];
 	this.sensitivity = 30;
@@ -30,6 +29,10 @@ function AjaxSlider(sliderItem,loaderFunction){
 	this.totalItems = 65535;
 
 	this.rightItemNumber = 0;
+
+	this.downloadedItems = 10;
+
+	this._itemsStack = 0;
 
 	this.itemLoader = function(k){
 		throw "Please, define AjaxSlider.prototype.itemLoader property for slider to work correctly";
@@ -100,15 +103,20 @@ function AjaxSlider(sliderItem,loaderFunction){
 
 
 		/* Launching autoloaders */
-		if (this.getPositionLeftElem() >= this.rightItemNumber){
-			this.rightItemNumber++;
-			if (this.rightItemNumber < this.totalItems) {
-				this.itemLoader(this.getPositionLeftElem()+1);
+		if (this.getPositionLeftElem() >= this.rightItemNumber && this._itemsStack===0){
+			for (var i=0; i<this.downloadedItems; i++){
+				this._itemsStack++;
+				this.rightItemNumber++;
+				if (this.rightItemNumber < this.totalItems) {
+					// this.itemLoader(this.getPositionLeftElem()+1);
+					this.itemLoader(this.rightItemNumber);
+				}
 			}
 		}
 	}
 
 	this.appendItemToLeft = function(html){
+		this._itemsStack--;
 		var div = document.createElement("div");
 		div.classList.add("slider-item");
 		div.innerHTML = html;
@@ -124,13 +132,103 @@ function AjaxSlider(sliderItem,loaderFunction){
 		this.setPosition(this.getPosition());
 		div.style.transition = "";
 
-		if (this.rightItemNumber===this.totalItems-1){
-			var rightButton = this.sliderItem.getElementsByClassName("right-button")[0];
-			var sliderLoader = this.sliderItem.getElementsByClassName("loader-item")[0];
-			this.sliderItem.insertBefore(sliderLoader,rightButton);
-			this.sliderItem.getElementsByClassName("left-button")[0].classList.add("inactive");
+		if (this.rightItemNumber>this.totalItems-1){
+			// var rightButton = this.sliderItem.getElementsByClassName("right-button")[0];
+			var loaders = this.container.getElementsByClassName("loader-item");
+			while (loaders.length>0){
+				loaders[0].parentNode.removeChild(loaders[0]);
+			}
+			// this.sliderItem.insertBefore(sliderLoader,rightButton);
+			// this.sliderItem.getElementsByClassName("left-button")[0].classList.add("inactive");
+			this.setPosition(this.getPosition());
 		}
 	}
+
+
+	this._pressed = false;
+
+	const TIMER_INTERVAL = 30;
+
+	this._speedConstant = 0.1;
+
+	this.getSpeedConstant = function(){
+		return this._speedConstant;
+	}
+
+	this.setSpeedConstant = function(val){
+
+		if (val<0){
+			throw "Slider.prototype.setSpeedConstant: negative speed constant is impossible";
+		}
+
+		if (val>0.03){
+			throw "Slider.prototype.setSpeedConstant: the speed constant is too large. See https://github.com/serik1987/slider/wiki/%D0%98%D0%BD%D0%B5%D1%80%D1%86%D0%B8%D0%BE%D0%BD%D0%BD%D0%BE%D1%81%D1%82%D1%8C-%D1%81%D0%BB%D0%B0%D0%B9%D0%B4%D0%B5%D1%80%D0%B0 for details";
+		}
+
+		this._speedConstant = val*TIMER_INTERVAL;
+	}
+
+	this._monitoring = {
+		time: 0,
+		position: 0,
+		previousPosition: 0
+	}
+
+	this._speed = 0;
+
+	this._timer1Function = function(){
+		this._monitoring.time += TIMER_INTERVAL;
+		this._monitoring.previousPosition = this._monitoring.position;
+		this._monitoring.position = this.getPosition();
+	}
+	this._timer1 = null;
+
+	this._timer2Function = function(){
+		/* console.log(this._speed); */
+
+		this.setPosition(this.getPosition()+this._speed);
+
+		if (Math.abs(this._speed)<=1){
+			clearInterval(this._timer2);
+			this._timer2 = null;
+		} else {
+			this._speed = (1-this._speedConstant)*this._speed;
+		}
+	}
+	this._timer2 = null;
+
+	addEvent(this.container,"mousedown",function(){
+		this._pressed = true;
+		this._monitoring.time=0;
+		this._monitoring.position = this._monitoring._previousPosition = this.getPosition();
+		this._timer1 = setInterval(this._timer1Function.bind(this),TIMER_INTERVAL);
+		this._timer1Function();
+		if (this._timer2!==null){
+			clearInterval(this._timer2);
+			this._timer2=null;
+		}
+	}.bind(this));
+
+	var mouseUpFunc = function(){
+		if (this._pressed){
+			this._speed = this._monitoring.position - this._monitoring.previousPosition;
+			this._pressed = false;
+			this._timer2 = setInterval(this._timer2Function.bind(this),TIMER_INTERVAL);
+			this._timer2Function();
+			if (this._timer1!==null){
+				clearInterval(this._timer1);
+				this._timer1=null;
+			}
+		}
+	}
+
+	addEvent(window,"mouseup",mouseUpFunc.bind(this));
+
+	addEvent(this.container,"mousemove",function(evt){
+		if (this._pressed){
+			this.setPosition(this.getPosition()+evt.movementX);
+		}
+	}.bind(this));
 
 
 	addEvent(this.leftButton,"click",function(){
@@ -155,7 +253,11 @@ function AjaxSlider(sliderItem,loaderFunction){
 		this.rightItemNumber++;
 		this.container.appendChild(availableItems[0]);
 	}
-	this.container.appendChild(this.loaderItem);
+
+	for (var i=0; i<this.downloadedItems; i++){
+		var loader = this.loaderItem.cloneNode(true);
+		this.container.appendChild(loader);
+	}
 
 	this.container.scrollLeft=65535;
 

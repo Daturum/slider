@@ -57,7 +57,7 @@
 	background: blue;
 	color: white;
 	text-align: center;
-	transition: 300ms ease-in;
+	/* transition: 300ms ease-in; */
 }
 
 .slider .slider-item:before{

@@ -13,15 +13,17 @@ document.addEventListener("DOMContentLoaded",function(){
 	slider.sensitivity=80;
 
 	/* Количество элементов, которые надо загрузить в слайдер для того, чтобы загрузчик itemLoader больше не фурыкал */
-	slider.totalItems = 25;
+	slider.totalItems = 250;
 
 
 	/* Вешается обработчик на достижение левого/правого края */
 	/* Обработчик должен иметь всего один параметр - номер загружаемого элемента. Нумерация начинается с единицы */
 	slider.itemLoader = function(N){
+		console.log("Loading item number "+N+"...");
 		var x = "<b>Элемент "+N+"</b>";
 		setTimeout(function(){
 			slider.appendItemToLeft(x);
+			console.log("Appending item number "+N+"...");
 		},3000);
 	}
 })
