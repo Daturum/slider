@@ -197,7 +197,8 @@ function AjaxSlider(sliderItem){
 	}
 	this._timer2 = null;
 
-	addEvent(this.container,"mousedown",function(){
+	var mouseDownFunc = function(evt){
+		evt.preventDefault();
 		this._pressed = true;
 		this._monitoring.time=0;
 		this._monitoring.position = this._monitoring._previousPosition = this.getPosition();
@@ -207,11 +208,21 @@ function AjaxSlider(sliderItem){
 			clearInterval(this._timer2);
 			this._timer2=null;
 		}
+	}
+
+	this._touchPos = 0;
+
+	addEvent(this.container,"mousedown",mouseDownFunc.bind(this));
+	addEvent(this.container,"touchstart",function(evt){
+		mouseDownFunc.call(this,evt);
+		this._touchPos = evt.changedTouches.item(0).clientX;
+		// document.getElementById("output").innerHTML = this._touchPos;
 	}.bind(this));
 
 	var mouseUpFunc = function(){
 		if (this._pressed){
 			this._speed = this._monitoring.position - this._monitoring.previousPosition;
+			console.log("Slider speed: "+this._speed);
 			this._pressed = false;
 			this._timer2 = setInterval(this._timer2Function.bind(this),TIMER_INTERVAL);
 			this._timer2Function();
@@ -223,10 +234,21 @@ function AjaxSlider(sliderItem){
 	}
 
 	addEvent(window,"mouseup",mouseUpFunc.bind(this));
+	addEvent(window,"touchend",mouseUpFunc.bind(this));
+	addEvent(window,"touchcancel",mouseUpFunc.bind(this));
 
 	addEvent(this.container,"mousemove",function(evt){
 		if (this._pressed){
 			this.setPosition(this.getPosition()+evt.movementX);
+		}
+	}.bind(this));
+
+	addEvent(this.container,"touchmove",function(evt){
+		if (this._pressed && evt.changedTouches.length===1){
+			var x = evt.changedTouches.item(0).clientX;
+			// document.getElementById("output").innerHTML = x - this._touchPos;
+			this.setPosition(this.getPosition()+(x-this._touchPos));
+			this._touchPos = x;
 		}
 	}.bind(this));
 
