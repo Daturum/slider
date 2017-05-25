@@ -14,7 +14,15 @@ function live(selector, event, callback, context) {
 
 
 
+
+
+
+
 function AjaxSlider(sliderItem){
+
+	/*************  Variables **************************************/
+
+	this._touchPos = 0;
 
 	this.sliderItem = document.getElementById(sliderItem);
 	this.container = this.sliderItem.getElementsByClassName("container")[0];
@@ -27,16 +35,35 @@ function AjaxSlider(sliderItem){
 	this._sliderItems = [];
 
 	this.totalItems = 65535;
-
 	this.rightItemNumber = 0;
-
+	this.leftItemNumber = 0;
 	this.downloadedItems = 10;
-
+	this.itemCapacity = 100;
 	this._itemsStack = 0;
 
-	this.itemLoader = function(k){
-		throw "Please, define AjaxSlider.prototype.itemLoader property for slider to work correctly";
+	this._pressed = false;
+	const TIMER_INTERVAL = 30;
+	this._speedConstant = 0.1;
+	this._monitoring = {
+		time: 0,
+		position: 0,
+		previousPosition: 0
 	}
+	this._speed = 0;
+	this._timer1 = null;
+	this._timer2 = null;
+
+	this.itemLoader = function(k,appendToRight){
+		throw "Please, define AjaxSlider.prototype.itemLoader property for slider to work correctly. See https://github.com/serik1987/slider/wiki/%D0%A4%D1%83%D0%BD%D0%BA%D1%86%D0%B8%D0%B8,-%D0%BF%D1%80%D0%B8%D0%BC%D0%B5%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BA%D0%BE%D1%82%D0%BE%D1%80%D1%8B%D1%85-%D0%BD%D0%B5%D0%BE%D0%B1%D1%85%D0%BE%D0%B4%D0%B8%D0%BC%D0%BE-%D0%B4%D0%BB%D1%8F-%D0%BA%D0%BE%D1%80%D1%80%D0%B5%D0%BA%D1%82%D0%BD%D0%BE%D0%B9-%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%8B-%D1%81%D0%BB%D0%B0%D0%B9%D0%B4%D0%B5%D1%80%D0%B0 for details";
+	}
+
+
+
+
+
+
+
+	/**************************  Functions **********************************************/
 
 
 	this.getSliderItem = function(k){
@@ -68,6 +95,15 @@ function AjaxSlider(sliderItem){
 
 	this.getPositionLeftElem = function(){
 		return Math.floor(this.getPositionLeft()/this.itemWidth);
+	}
+
+	this.leftLoadingCondition = function(){
+		return this.getSliderItem(this.getSliderItemCount()-1).getBoundingClientRect().left>this.container.getBoundingClientRect().left;
+	}
+
+	this.rightLoadingCondition = function(){
+		var padd = parseInt(getComputedStyle(this.container).paddingRight.match(/\d+/));
+		return this.getSliderItem(0).getBoundingClientRect().right<slider.container.getBoundingClientRect().right;
 	}
 
 	/* Setting position in pixels */
@@ -103,53 +139,136 @@ function AjaxSlider(sliderItem){
 
 
 		/* Launching autoloaders */
-		if (this.getPositionLeftElem() >= this.rightItemNumber && this._itemsStack===0){
+		if (this.leftLoadingCondition() && this._itemsStack===0 && this.rightItemNumber < this.totalItems){
 			for (var i=0; i<this.downloadedItems; i++){
-				this._itemsStack++;
-				this.rightItemNumber++;
 				if (this.rightItemNumber < this.totalItems) {
-					// this.itemLoader(this.getPositionLeftElem()+1);
-					this.itemLoader(this.rightItemNumber);
+					this._itemsStack++;
+					this.rightItemNumber++;
+					this.itemLoader(this.rightItemNumber,false);
+				}
+			}
+		}
+
+		if (this.rightLoadingCondition() && this._itemsStack===0 && this.leftItemNumber>1){
+			console.log("Loading items to right")
+			for (var i=0; i<this.downloadedItems; i++){
+				if (this.leftItemNumber > 1){
+					this._itemsStack++;
+					this.leftItemNumber--;
+					this.itemLoader(this.leftItemNumber,true);
 				}
 			}
 		}
 	}
 
-	this.appendItemToLeft = function(html){
+	this.appendItem = function(html,appendToRight){
 		this._itemsStack--;
 		var div = document.createElement("div");
 		div.classList.add("slider-item");
 		div.innerHTML = html;
 		div.style.transition = "none";
 		var parent = this.container;
-		var it = this.getSliderItem(this.getSliderItemCount()-1).nextSibling;
-		if (it){
-			parent.insertBefore(div,it);
-		} else {
-			parent.appendChild(div);
-		}
-		this._sliderItems.push(div);
-		this.setPosition(this.getPosition());
-		div.style.transition = "";
+		var positionCorrector = 0;
 
-		if (this.rightItemNumber>this.totalItems-1){
-			// var rightButton = this.sliderItem.getElementsByClassName("right-button")[0];
-			var loaders = this.container.getElementsByClassName("loader-item");
-			while (loaders.length>0){
-				loaders[0].parentNode.removeChild(loaders[0]);
+		if (appendToRight){
+			// append to right
+			var it = this.getSliderItem(0);
+			parent.insertBefore(div,it);
+			this._sliderItems.unshift(div);
+			positionCorrector += this.itemWidth;
+			while (this.getSliderItemCount()>this.itemCapacity){
+				this.removeItemFromLeft();
 			}
-			// this.sliderItem.insertBefore(sliderLoader,rightButton);
-			// this.sliderItem.getElementsByClassName("left-button")[0].classList.add("inactive");
-			this.setPosition(this.getPosition());
+		} else {
+			// append to left
+			var it = this.getLoadersInLeft();
+			if (it.length>0){
+				parent.insertBefore(div,it[0]);
+			} else {
+				parent.appendChild(div);
+			}
+			this._sliderItems.push(div);
+			while (this.getSliderItemCount()>this.itemCapacity){
+				positionCorrector += this.removeItemFromRight();
+			}
+		}
+
+		this.updateLoaderInLeft();
+		positionCorrector += this.updateLoaderInRight();
+
+		this.setPosition(this.getPosition()+positionCorrector);
+
+		div.style.transition = "";
+	}
+
+	this.removeItemFromLeft = function(){
+		var itemToRemove = this._sliderItems.pop();
+		this.rightItemNumber--;
+		itemToRemove.remove();
+	}
+
+	this.removeItemFromRight = function(){
+		var itemToRemove = this._sliderItems.shift();
+		this.leftItemNumber++;
+		itemToRemove.remove();
+		return -this.itemWidth;
+	}
+
+	this.addLoaderToLeft = function(){
+		var loader = this.loaderItem.cloneNode(true);
+		loader.classList.add("trailing-loader-item");
+		this.container.appendChild(loader);
+	}
+
+	this.getLoadersInLeft = function(){
+		return this.container.getElementsByClassName("trailing-loader-item");
+	}
+
+	this.removeLoaderFromLeft = function(){
+		var items = this.getLoadersInLeft();
+		while (items.length>0){
+			items[0].remove();
 		}
 	}
 
+	this.updateLoaderInLeft = function(){
+		this.removeLoaderFromLeft();
+		var itemsToAdd = this.totalItems-this.rightItemNumber;
+		var loadersToAppend = this.downloadedItems;
+		if (loadersToAppend > itemsToAdd) loadersToAppend = itemsToAdd;
+		for (var i=0; i<loadersToAppend; i++){
+			this.addLoaderToLeft();
+		}
+	}
 
-	this._pressed = false;
+	this.addLoaderToRight = function(){
+		var loader = this.loaderItem.cloneNode(true);
+		loader.classList.add("leading-loader-item");
+		this.container.insertBefore(loader, this.container.children[0]);
+	}
 
-	const TIMER_INTERVAL = 30;
+	this.getLoadersInRight = function(){
+		return this.container.getElementsByClassName("leading-loader-item");
+	}
 
-	this._speedConstant = 0.1;
+	this.removeLoaderFromRight = function(){
+		var items = this.getLoadersInRight();
+		while (items.length>0){
+			items[0].remove();
+		}
+	}
+
+	this.updateLoaderInRight = function(){
+		var loadersNumber1 = this.getLoadersInRight().length;
+		var loaders2add = this.leftItemNumber-1;
+		if (loaders2add > this.downloadedItems) loaders2add = this.downloadedItems;
+		this.removeLoaderFromRight();
+		for (var i=0; i<loaders2add; i++){
+			this.addLoaderToRight();
+		}
+		var loadersNumber2 = this.getLoadersInRight().length;
+		return (loadersNumber2-loadersNumber1)*this.itemWidth;
+	}
 
 	this.getSpeedConstant = function(){
 		return this._speedConstant;
@@ -168,20 +287,11 @@ function AjaxSlider(sliderItem){
 		this._speedConstant = val*TIMER_INTERVAL;
 	}
 
-	this._monitoring = {
-		time: 0,
-		position: 0,
-		previousPosition: 0
-	}
-
-	this._speed = 0;
-
 	this._timer1Function = function(){
 		this._monitoring.time += TIMER_INTERVAL;
 		this._monitoring.previousPosition = this._monitoring.position;
 		this._monitoring.position = this.getPosition();
 	}
-	this._timer1 = null;
 
 	this._timer2Function = function(){
 		/* console.log(this._speed); */
@@ -195,7 +305,14 @@ function AjaxSlider(sliderItem){
 			this._speed = (1-this._speedConstant)*this._speed;
 		}
 	}
-	this._timer2 = null;
+
+
+
+
+
+
+
+	/********************************* Events **********************************************/
 
 	var mouseDownFunc = function(evt){
 		evt.preventDefault();
@@ -209,8 +326,6 @@ function AjaxSlider(sliderItem){
 			this._timer2=null;
 		}
 	}
-
-	this._touchPos = 0;
 
 	addEvent(this.container,"mousedown",mouseDownFunc.bind(this));
 	addEvent(this.container,"touchstart",function(evt){
@@ -267,18 +382,32 @@ function AjaxSlider(sliderItem){
 	}.bind(this));
 
 
+
+
+
+
+
+
+
+
+	/********************************** Constructor **************************************/
+
+
 	var bufferItem = this.sliderItem.getElementsByClassName("buffer")[0];
 	var availableItems = bufferItem.children;
 	var itemWidthComputed = false;
+
+	// Moving items from buffer to container
 	while (availableItems.length!==0){
 		this._sliderItems.push(availableItems[0]);
 		this.rightItemNumber++;
+		this.leftItemNumber=1;
 		this.container.appendChild(availableItems[0]);
 	}
 
+	// Moving downloading items
 	for (var i=0; i<this.downloadedItems; i++){
-		var loader = this.loaderItem.cloneNode(true);
-		this.container.appendChild(loader);
+		this.addLoaderToLeft();
 	}
 
 	this.container.scrollLeft=65535;

@@ -15,14 +15,18 @@ document.addEventListener("DOMContentLoaded",function(){
 	/* Количество элементов, которые надо загрузить в слайдер для того, чтобы загрузчик itemLoader больше не фурыкал */
 	slider.totalItems = 250;
 
+	/* Количество элементов слайдера, которые одновременно могут находиться в оперативной памяти. При превышении */
+	/* этого числа излишки удаляются слева, либо справа от слайдера, в зависимости от ситуации */
+	slider.itemCapacity = 100;
+
 
 	/* Вешается обработчик на достижение левого/правого края */
 	/* Обработчик должен иметь всего один параметр - номер загружаемого элемента. Нумерация начинается с единицы */
-	slider.itemLoader = function(N){
+	slider.itemLoader = function(N,appendToRight){
 		console.log("Loading item number "+N+"...");
 		var x = "<b>Элемент "+N+"</b>";
 		setTimeout(function(){
-			slider.appendItemToLeft(x);
+			slider.appendItem(x,appendToRight);
 			console.log("Appending item number "+N+"...");
 		},3000);
 	}
