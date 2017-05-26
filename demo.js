@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded",function(){
 
 	/* Количество элементов слайдера, которые одновременно могут находиться в оперативной памяти. При превышении */
 	/* этого числа излишки удаляются слева, либо справа от слайдера, в зависимости от ситуации */
-	slider.itemCapacity = 100;
+	slider.itemCapacity = 60;
 
 
 	/* Вешается обработчик на достижение левого/правого края */
@@ -28,6 +28,6 @@ document.addEventListener("DOMContentLoaded",function(){
 		setTimeout(function(){
 			slider.appendItem(x,appendToRight);
 			console.log("Appending item number "+N+"...");
-		},3000);
+		},500);
 	}
 })
