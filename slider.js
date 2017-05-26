@@ -42,7 +42,7 @@ function AjaxSlider(sliderItem){
 	this._itemsStack = 0;
 
 	this._pressed = false;
-	const TIMER_INTERVAL = 30;
+	TIMER_INTERVAL = 30;
 	this._speedConstant = 0.1;
 	this._monitoring = {
 		time: 0,
@@ -64,6 +64,14 @@ function AjaxSlider(sliderItem){
 
 
 	/**************************  Functions **********************************************/
+
+	this.getTimerInterval = function(){
+		return TIMER_INTERVAL;
+	}
+
+	this.setTimerInterval = function(val){
+		TIMER_INTERVAL = val;
+	}
 
 
 	this.getSliderItem = function(k){
